@@ -20,8 +20,6 @@ public class Attendance {
 	@GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "Custom_Sequence")
 	private Integer id;
 
-	@Min(value = 1, message = "No. of working days must be greater than 1")
-	@Max(value = 30, message = "No. of working days must be lesser than 30")
 	private Integer numberOfWorkingDays;
 
 	@Column(name = "created_at", nullable = false, updatable = false, insertable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
@@ -29,7 +27,6 @@ public class Attendance {
 
 	@Column(name = "modified_at", nullable = false, updatable = false, insertable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
 	public Timestamp modifiedAt;
-
 	private Integer employeeId;
 
 	public Attendance() {

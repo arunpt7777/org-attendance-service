@@ -29,6 +29,14 @@ public class CustomisedResponseEntityExceptionHandler extends ResponseEntityExce
 		return new ResponseEntity(errorDetails, HttpStatus.NOT_FOUND);
 	}
 
+	@ExceptionHandler(InvalidAttendanceException.class)
+	public final ResponseEntity<ErrorDetails> handleInvalidAttendanceException(Exception ex, WebRequest request)
+			throws Exception {
+		ErrorDetails errorDetails = new ErrorDetails(LocalDateTime.now(), ex.getMessage(),
+				request.getDescription(false));
+		return new ResponseEntity(errorDetails, HttpStatus.NOT_FOUND);
+	}
+
 	@Override
 	protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex,
 			HttpHeaders headers, HttpStatusCode status, WebRequest request) {
