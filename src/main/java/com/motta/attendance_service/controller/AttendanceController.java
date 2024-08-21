@@ -19,7 +19,7 @@ import com.motta.attendance_service.service.AttendanceService;
 
 import jakarta.validation.Valid;
 
-@RestController
+@RestController("attendance_controller")
 public class AttendanceController {
 
 	@Autowired

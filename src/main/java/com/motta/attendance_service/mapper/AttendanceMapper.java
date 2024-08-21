@@ -2,20 +2,23 @@ package com.motta.attendance_service.mapper;
 
 import com.motta.attendance_service.entity.Attendance;
 import com.motta.attendance_service.model.AttendanceDTO;
+import org.springframework.beans.BeanUtils;
+import org.springframework.stereotype.Component;
 
+@Component
 public class AttendanceMapper {
 
-	// Convert Attendance JPA Entity into AttendanceDTO
-	public static AttendanceDTO mapToAttendanceDTO(Attendance attendance) {
-		AttendanceDTO attendanceDTO = new AttendanceDTO(attendance.getId(), attendance.getNumberOfWorkingDays(),
-				attendance.getCreatedAt(), attendance.getModifiedAt(), attendance.getEmployeeId());
+	// Convert Scheme JPA Entity into SchemeDTO
+	public AttendanceDTO mapToAttendanceDTO(Attendance attendance) {
+		AttendanceDTO attendanceDTO = new AttendanceDTO();
+		BeanUtils.copyProperties(attendance, attendanceDTO);
 		return attendanceDTO;
 	}
 
-	// Convert AttendanceDTO into Attendance JPA Entity
-	public static Attendance mapToAttendance(AttendanceDTO attendanceDTO) {
-		Attendance attendance = new Attendance(attendanceDTO.getId(), attendanceDTO.getNumberOfWorkingDays(),
-				attendanceDTO.getCreatedAt(), attendanceDTO.getModifiedAt(), attendanceDTO.getEmployeeId());
+	// Convert SchemeDTO into Scheme JPA Entity
+	public Attendance mapToAttendance(AttendanceDTO attendanceDTO) {
+		Attendance attendance = new Attendance();
+		BeanUtils.copyProperties(attendanceDTO, attendance);
 		return attendance;
 	}
 }

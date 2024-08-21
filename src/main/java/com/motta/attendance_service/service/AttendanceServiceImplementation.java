@@ -3,18 +3,16 @@ package com.motta.attendance_service.service;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-
 import com.motta.attendance_service.exception.InvalidAttendanceException;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static com.motta.attendance_service.util.AttendanceConstants.*;
+
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
 import com.motta.attendance_service.entity.Attendance;
 import com.motta.attendance_service.exception.AttendanceAlreadyExistsException;
-import com.motta.attendance_service.exception.AttendanceNotFoundException;
 import com.motta.attendance_service.mapper.AttendanceMapper;
 import com.motta.attendance_service.model.AttendanceDTO;
 import com.motta.attendance_service.repository.AttendanceRepository;
@@ -22,11 +20,11 @@ import com.motta.attendance_service.repository.AttendanceRepository;
 import jakarta.transaction.Transactional;
 
 @Service
-@Transactional
 @Slf4j
 public class AttendanceServiceImplementation implements AttendanceService {
 
-	private static final Logger log = LoggerFactory.getLogger(AttendanceServiceImplementation.class);
+	@Autowired
+	private AttendanceMapper attendanceMapper;
 
 	@Value("${attendance.id.initialValue}")
 	private Integer initialValueOfPrimaryKey;
@@ -40,91 +38,94 @@ public class AttendanceServiceImplementation implements AttendanceService {
 	@Autowired
 	private AttendanceRepository repository;
 
+	@Transactional
 	@Override
 	public AttendanceDTO createAttendance(AttendanceDTO attendanceDTO) {
 
-		// CHeck if id already exists
+		// Check if id already exists
 		Optional<Attendance> attendance = repository.findById(attendanceDTO.getId());
-		log.info("Attendance id = {} not found.", attendanceDTO.getId());
+		log.info(LOG_MESSAGE_ATTENDANCE_NOT_FOUND + attendanceDTO.getId());
 
-		if (attendance.isPresent())
-			throw new AttendanceAlreadyExistsException("Attendance id = " + attendanceDTO.getId() + " already Exists!");
+		if (attendance.isPresent()) {
+			throw new AttendanceAlreadyExistsException(EXCEPTION_MESSAGE_ATTENDANCE_NOT_FOUND);
+		}
 
 		// Convert AttendanceDTO into User JPA Entity
-		Attendance newAttendance = AttendanceMapper.mapToAttendance(attendanceDTO);
+		Attendance newAttendance = attendanceMapper.mapToAttendance(attendanceDTO);
 		Attendance savedAttendance = repository.save(newAttendance);
-		log.info("Attendance id = {} has been persisted.", newAttendance.getId());
-        return AttendanceMapper.mapToAttendanceDTO(savedAttendance);
+		log.info(LOG_MESSAGE_ATTENDANCE_PERSISTED);
+        return attendanceMapper.mapToAttendanceDTO(savedAttendance);
 	}
 
 	@Override
 	public AttendanceDTO retrieveAttendanceById(Integer id) {
-		Attendance attendance = repository.findById(id).get();
-		log.error("Attendance id = {} not found. Please enter different id", id);
-        return AttendanceMapper.mapToAttendanceDTO(attendance);
+		Attendance attendance = repository.findById(id).orElse(null);
+		assert attendance != null;
+		AttendanceDTO attendanceDTO = new AttendanceDTO();
+		BeanUtils.copyProperties(attendance, attendanceDTO);
+		return attendanceDTO;
 	}
 
 	@Override
 	public List<AttendanceDTO> retrieveAllAttendances() {
 		List<Attendance> attendances = repository.findAll();
-		return attendances.stream().map(AttendanceMapper::mapToAttendanceDTO).collect(Collectors.toList());
+		return attendances.stream().map(attendanceMapper::mapToAttendanceDTO).collect(Collectors.toList());
 	}
 
+	@Transactional
 	@Override
 	public AttendanceDTO updateAttendance(AttendanceDTO attendanceDTO) {
-		Attendance existingAttendance = repository.findById(attendanceDTO.getId()).get();
-		log.info("Attendance id = {} has been fetched.", attendanceDTO.getId());
+		// Check if From and To Dates are valid
+		validateAttendanceDTO(attendanceDTO);
 
-        existingAttendance.setNumberOfWorkingDays(attendanceDTO.getNumberOfWorkingDays());
-		existingAttendance.setCreatedAt(attendanceDTO.getCreatedAt());
-		existingAttendance.setModifiedAt(attendanceDTO.getModifiedAt());
-		existingAttendance.setEmployeeId(attendanceDTO.getEmployeeId());
-
-		Attendance updatedAttendance = repository.save(existingAttendance);
-		return AttendanceMapper.mapToAttendanceDTO(updatedAttendance);
+		Attendance existingAttendance = repository.findById(attendanceDTO.getId()).orElse(new Attendance());
+		BeanUtils.copyProperties(existingAttendance, attendanceDTO);
+		Attendance updatedScheme = repository.save(existingAttendance);
+		log.error(LOG_MESSAGE_ATTENDANCE_UPDATE_FAILED, existingAttendance.getId());
+		return attendanceMapper.mapToAttendanceDTO(updatedScheme);
 	}
 
+	@Transactional
 	@Override
 	public void deleteAttendance(Integer id) {
 		repository.deleteById(id);
 	}
 
 	@Override
-	public AttendanceDTO retrieveAttendanceByEmployeeId(Integer employeeId) {
+	public AttendanceDTO retrieveAttendanceByEmployeeId(int employeeId) {
 		List<Attendance> attendances = repository.findAll();
-		return attendances.stream().filter(attendance -> attendance.getEmployeeId().equals(employeeId))
-				.map(AttendanceMapper::mapToAttendanceDTO).collect(Collectors.toList()).getFirst();
+		return attendances.stream().filter(attendance -> attendance.getEmployeeId()==(employeeId))
+				.map(attendanceMapper::mapToAttendanceDTO).toList().getFirst();
 	}
-
 
 	@Override
 	public void validateAttendanceDTO(AttendanceDTO  attendanceDTO) {
 
-		if (attendanceDTO.getId()==null) {
-			throw new InvalidAttendanceException("Attendance Id is mandatory");
+		if (attendanceDTO.getId()==0) {
+			throw new InvalidAttendanceException(EXCEPTION_MESSAGE_ATTENDANCE_ID_IS_MANDATORY);
 		}
 
 		if (attendanceDTO.getId()<initialValueOfPrimaryKey) {
-			throw new InvalidAttendanceException("Attendance Id must not be less than the initial value of: " + initialValueOfPrimaryKey);
+			throw new InvalidAttendanceException(EXCEPTION_MESSAGE_ATTENDANCE_ID_LESS_THAN_INITIAL_VALUE);
 		}
 
-		if (attendanceDTO.getEmployeeId()==null) {
-			throw new InvalidAttendanceException("Employee ID is mandatory");
+		if (attendanceDTO.getEmployeeId()==0) {
+			throw new InvalidAttendanceException(EXCEPTION_MESSAGE_EMPLOYEE_ID_IS_MANDATORY);
 		}
-		if (attendanceDTO.getNumberOfWorkingDays()==null) {
-			throw new InvalidAttendanceException("Number of working days is mandatory");
+		if (attendanceDTO.getNumberOfWorkingDays()==0) {
+			throw new InvalidAttendanceException(EXCEPTION_MESSAGE_NUMBER_OF_WORKING_DAYS_IS_MANDATORY);
 		}
 
 		if (attendanceDTO.getNumberOfWorkingDays()<minWorkingDays || attendanceDTO.getNumberOfWorkingDays()>maxWorkingDays) {
-			throw new InvalidAttendanceException("Number of working days must be between " + minWorkingDays + " and " + maxWorkingDays);
+			throw new InvalidAttendanceException(EXCEPTION_MESSAGE_NUMBER_OF_WORKING_DAYS_IS_INVALID);
 		}
 
 		if (attendanceDTO.getCreatedAt()==null) {
-			throw new InvalidAttendanceException("Created At is mandatory");
+			throw new InvalidAttendanceException(EXCEPTION_MESSAGE_CREATED_AT_IS_MANDATORY);
 		}
 
 		if (attendanceDTO.getModifiedAt()==null) {
-			throw new InvalidAttendanceException("Modified At is mandatory");
+			throw new InvalidAttendanceException(EXCEPTION_MESSAGE_MODIFIED_AT_IS_MANDATORY);
 		}
 	}
 
